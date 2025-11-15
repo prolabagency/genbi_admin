@@ -1,8 +1,6 @@
-// src/pages/category/index.jsx (главный компонент)
 import { useState, useEffect } from "react";
 import { $API, $APIFORMS } from "../../axios";
 
-// Импорты подкомпонентов
 import CategoryCard from "../../components/categoryManegment/CategoryCard";
 import AddCategoryForm from "../../components/categoryManegment/AddCategoryForm";
 import Filters from "../../components/categoryManegment/FilterCategory";
@@ -16,91 +14,82 @@ export default function Categories() {
   const [editName, setEditName] = useState("");
   const [editIcon, setEditIcon] = useState(null);
 
-  // Fetch категорий
-  const fetchCategories = () => {
+  const fixIconUrl = (url) => {
+    if (!url) return url;
+    return url.replace(
+      "http://tour_service:8000",
+      "https://genbi-back.prolabagency.com"
+    );
+  };
+
+  const fetchCategories = async () => {
     setLoading(true);
-    $API
-      .get("/catalog/categories/")
-      .then((response) => {
-        console.log("RAW response.data:", response.data);
-        const categories = Array.isArray(response.data)
-          ? response.data
-          : response.data.results || [];
+    try {
+      const response = await $API.get("/catalog/categories/");
+      console.log("Categories response:", response.data);
 
-        // Исправляем URL иконок если они содержат tour_service
-        const fixedCategories = categories.map((cat) => ({
-          ...cat,
-          icon: cat.icon
-            ? cat.icon.replace(
-                "http://tour_service:8000",
-                "https://genbi-back.prolabagency.com"
-              )
-            : cat.icon,
-        }));
+      const categories = Array.isArray(response.data)
+        ? response.data
+        : response.data.results || [];
 
-        setDataCategory(fixedCategories);
-        setEmptyData(fixedCategories.length === 0);
-      })
-      .catch((error) => {
-        console.error("Ошибка fetch:", error);
-        setDataCategory([]);
-        setEmptyData(true);
-      })
-      .finally(() => setLoading(false));
+      const fixedCategories = categories.map((cat) => ({
+        ...cat,
+        icon: fixIconUrl(cat.icon),
+      }));
+
+      setDataCategory(fixedCategories);
+      setEmptyData(fixedCategories.length === 0);
+    } catch (error) {
+      console.error("Ошибка загрузки категорий:", error);
+      setDataCategory([]);
+      setEmptyData(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchCategories();
   }, []);
 
-  // Добавление новой категории
-  const handleAddCategory = (formData) => {
-    $APIFORMS
-      .post("/catalog/categories/", formData)
-      .then((response) => {
-        // Исправляем URL иконки если содержит tour_service
-        const fixedData = {
-          ...response.data,
-          icon: response.data.icon
-            ? response.data.icon.replace(
-                "http://tour_service:8000",
-                "https://genbi-back.prolabagency.com"
-              )
-            : response.data.icon,
-        };
-        setDataCategory([fixedData, ...dataCategory]);
-        setShowAddForm(false);
-      })
-      .catch((error) => {
-        console.error(
-          "Ошибка добавления:",
-          error.response?.data || error.message
-        );
-        alert("Ошибка при добавлении категории");
-      });
+  const handleAddCategory = async (formData) => {
+    try {
+      const response = await $APIFORMS.post("/catalog/categories/", formData);
+      console.log("Category added:", response.data);
+
+      const newCategory = {
+        ...response.data,
+        icon: fixIconUrl(response.data.icon),
+      };
+
+      setDataCategory([newCategory, ...dataCategory]);
+      setShowAddForm(false);
+      setEmptyData(false);
+    } catch (error) {
+      console.error(
+        "Ошибка добавления категории:",
+        error.response?.data || error
+      );
+      alert("Ошибка при добавлении категории");
+    }
   };
 
-  // Toggle редактирования
   const handleEditCategory = (category) => {
     if (editingId === category.id) {
-      // Если уже редактируем эту категорию - закрываем
       setEditingId(null);
       setEditName("");
       setEditIcon(null);
     } else {
-      // Открываем редактирование новой категории
       setEditingId(category.id);
       setEditName(category.name);
       setEditIcon(null);
     }
   };
 
-  // Сохранение изменений
-  const handleSaveEdit = (categoryId) => {
-    console.log("=== handleSaveEdit вызван ===");
-    console.log("categoryId:", categoryId);
-    console.log("editName:", editName);
-    console.log("editIcon:", editIcon);
+  const handleSaveEdit = async (categoryId) => {
+    console.log("Saving category:", categoryId);
+    console.log("Name:", editName);
+    console.log("Icon:", editIcon);
 
     if (!editName || editName.trim() === "") {
       alert("Название категории не может быть пустым");
@@ -110,83 +99,82 @@ export default function Categories() {
     const formData = new FormData();
     formData.append("name", editName.trim());
 
-    // Добавляем иконку только если она была изменена
     if (editIcon) {
       formData.append("icon", editIcon);
-      console.log("Добавлена новая иконка в FormData");
     }
-
-    console.log(
-      "Отправка PUT запроса на:",
-      `/catalog/categories/${categoryId}/`
-    );
-
-    $APIFORMS
-      .put(`/catalog/categories/${categoryId}/`, formData)
-      .then((response) => {
-        console.log("Успешный ответ:", response.data);
-
-        // Исправляем URL иконки если содержит tour_service
-        const fixedData = {
-          ...response.data,
-          icon: response.data.icon
-            ? response.data.icon.replace(
-                "http://tour_service:8000",
-                "https://genbi-back.prolabagency.com"
-              )
-            : response.data.icon,
-        };
-
-        setDataCategory(
-          dataCategory.map((cat) => (cat.id === categoryId ? fixedData : cat))
-        );
-        setEditingId(null);
-        setEditName("");
-        setEditIcon(null);
-      })
-      .catch((error) => {
-        console.error("=== ОШИБКА ОБНОВЛЕНИЯ ===");
-        console.error("Full error:", error);
-        console.error("Response data:", error.response?.data);
-        console.error("Status:", error.response?.status);
-        console.error("Headers:", error.response?.headers);
-
-        const errorMsg =
-          error.response?.data?.detail ||
-          error.response?.data?.name?.[0] ||
-          error.response?.data?.icon?.[0] ||
-          "Неизвестная ошибка";
-
-        alert(`Ошибка при обновлении категории: ${errorMsg}`);
-      });
-  };
-
-  // Удаление
-  const handleDeleteCategory = async (categoryId) => {
-    if (!window.confirm("Удалить категорию?")) return;
 
     try {
-      await $API.delete(`/catalog/categories/${categoryId}/`);
-      setDataCategory(dataCategory.filter((cat) => cat.id !== categoryId));
+      const response = await $APIFORMS.put(
+        `/catalog/categories/${categoryId}`,
+        formData
+      );
+      console.log("Category updated:", response.data);
+
+      const updatedCategory = {
+        ...response.data,
+        icon: fixIconUrl(response.data.icon),
+      };
+
+      setDataCategory(
+        dataCategory.map((cat) =>
+          cat.id === categoryId ? updatedCategory : cat
+        )
+      );
+
+      setEditingId(null);
+      setEditName("");
+      setEditIcon(null);
     } catch (error) {
-      console.error("Ошибка удаления:", error.response?.data || error.message);
-      alert("Ошибка при удалении категории");
+      console.error(
+        "Ошибка обновления категории:",
+        error.response?.data || error
+      );
+
+      const errorMsg =
+        error.response?.data?.detail ||
+        error.response?.data?.name?.[0] ||
+        error.response?.data?.icon?.[0] ||
+        "Неизвестная ошибка";
+
+      alert(`Ошибка при обновлении: ${errorMsg}`);
     }
   };
 
-  // Отмена редактирования
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditName("");
     setEditIcon(null);
   };
 
-  // Toggle формы добавления
-  const toggleAddForm = () => setShowAddForm(!showAddForm);
+  const handleDeleteCategory = async (categoryId) => {
+    if (!window.confirm("Вы уверены, что хотите удалить эту категорию?")) {
+      return;
+    }
+
+    try {
+      await $API.delete(`/catalog/categories/${categoryId}`);
+      console.log("Category deleted:", categoryId);
+
+      setDataCategory(dataCategory.filter((cat) => cat.id !== categoryId));
+
+      if (dataCategory.length === 1) {
+        setEmptyData(true);
+      }
+    } catch (error) {
+      console.error(
+        "Ошибка удаления категории:",
+        error.response?.data || error
+      );
+      alert("Ошибка при удалении категории");
+    }
+  };
+
+  const toggleAddForm = () => {
+    setShowAddForm(!showAddForm);
+  };
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-800 mb-2">
           Управление категориями
@@ -217,7 +205,7 @@ export default function Categories() {
         </div>
       )}
 
-      {!loading && (
+      {!loading && !emptyData && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {dataCategory.map((category) => (
             <CategoryCard

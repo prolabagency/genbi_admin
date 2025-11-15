@@ -7,6 +7,7 @@ import {
   // Bell,
   Server,
   ChartColumnStacked,
+  Group,
 } from "lucide-react";
 
 export const $NavigateTo = [
@@ -45,6 +46,11 @@ export const $NavigateTo = [
     name: "Категорий",
     path: "/category",
     icon: <ChartColumnStacked />,
+  },
+  {
+    name: "Туры",
+    path: "/tour-add",
+    icon: <Group />,
   },
   {
     name: "Состояние сервера",
