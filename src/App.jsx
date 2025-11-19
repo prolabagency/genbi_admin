@@ -9,6 +9,7 @@ import CreateLocation from "./pages/create-location";
 import HealthServer from "./pages/healthy-server";
 import Category from "./pages/category";
 import Tour from "./pages/tour";
+import Company from "./pages/company";
 
 function App() {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ function App() {
         <Route path="/health-server" element={<HealthServer />} />
         <Route path="/category" element={<Category />} />
         <Route path="/tour-add" element={<Tour />} />
+        <Route path="/company" element={<Company />} />
       </Route>
     </Routes>
   );

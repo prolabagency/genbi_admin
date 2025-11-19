@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Plus, Globe, Map, MapPin } from "lucide-react";
+import { Search, Plus, Globe, Map, MapPin, Navigation } from "lucide-react";
 import { TabButton } from "../../components/locationManegment/TabButton";
 import { CountriesTable } from "../../components/locationManegment/countriesTable";
 import { RegionsTable } from "../../components/locationManegment/regionTable";
@@ -18,16 +18,19 @@ const LocationsPage = () => {
   const [countries, setCountries] = useState([]);
   const [regions, setRegions] = useState();
   const [cities, setCities] = useState();
+  const [location, setLocation] = useState();
 
   useEffect(() => {
     Promise.all([
       $API.get("geo/countries/"),
       $API.get("geo/regions/"),
       $API.get("geo/cities/"),
-    ]).then(([countriesRes, regionsRes, citiesRes]) => {
+      $API.get("geo/locations/"),
+    ]).then(([countriesRes, regionsRes, citiesRes, locationRes]) => {
       setCountries(countriesRes.data);
       setRegions(regionsRes.data);
       setCities(citiesRes.data);
+      setLocation(locationRes);
     });
   }, []);
 
@@ -85,6 +88,9 @@ const LocationsPage = () => {
         case "cities":
           setCities((prev) => [...prev, data]);
           break;
+        case "location":
+          setLocation((prev) => [...prev, data]);
+          break;
       }
 
       setShowModal(false);
@@ -105,6 +111,10 @@ const LocationsPage = () => {
             prev.map((item) => (item.id === data.id ? data : item))
           );
           break;
+        case "location":
+          setLocation((prev) => {
+            prev.map((item) => (item.id === data.id ? data : item));
+          });
       }
     }
   };
@@ -142,6 +152,13 @@ const LocationsPage = () => {
                 id="cities"
                 label="Города"
                 icon={MapPin}
+                activeTab={activeTab}
+                onClick={setActiveTab}
+              />
+              <TabButton
+                id="location"
+                label="Локации"
+                icon={Navigation}
                 activeTab={activeTab}
                 onClick={setActiveTab}
               />

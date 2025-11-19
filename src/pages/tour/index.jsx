@@ -7,8 +7,56 @@ import {
   MoreVertical,
   Filter,
   ChevronDown,
+  Mountain,
+  Tent,
+  Sailboat,
+  ChessKnight,
+  Heart,
+  PersonStanding,
+  Footprints,
+  Trees,
+  Users,
 } from "lucide-react";
 import $API from "../../axios";
+
+// Маппинг типов путешествий → SVG-иконки из lucide-react
+export const TRAVEL_TYPE_ICON_MAP = {
+  // пешие / трекинг
+  hiking: Footprints,
+  trekking: Footprints,
+  walking: Footprints,
+
+  // горные / природа / кемпинг
+  mountain: Mountain,
+  nature: Trees,
+  forest: Trees,
+  camping: Tent,
+
+  // конные туры
+  horse: ChessKnight,
+
+  // лодки / яхты / круизы
+  boat: Sailboat,
+  sailing: Sailboat,
+  cruise: Sailboat,
+
+  // для пар
+  couple: Heart,
+  romantic: Heart,
+
+  // для одиночек
+  solo: PersonStanding,
+
+  // семейные
+  family: Users,
+};
+
+// Универсальный компонент иконки по типу
+export function TravelTypeIcon({ type, className }) {
+  if (!type) return null;
+  const Icon = TRAVEL_TYPE_ICON_MAP[type] || Mountain; // дефолтная иконка
+  return <Icon className={className} />;
+}
 
 export default function ToursAdmin() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -17,6 +65,7 @@ export default function ToursAdmin() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tourData, setTourData] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [errorsForm, setErrorsForm] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -24,24 +73,24 @@ export default function ToursAdmin() {
     company_id: "",
   });
 
-  // const categories = [
-  //   { id: 1, name: "Экскурсионные туры", icon: "🏛️" },
-  //   { id: 2, name: "Пляжный отдых", icon: "🏖️" },
-  //   { id: 3, name: "Горнолыжные туры", icon: "⛷️" },
-  //   { id: 4, name: "Экстремальный туризм", icon: "🧗" },
-  //   { id: 5, name: "Круизы", icon: "🚢" },
-  // ];
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Данные формы:", formData);
-    setIsModalOpen(false);
-    setFormData({
-      name: "",
-      description: "",
-      category_id: "",
-      company_id: "",
-    });
+    setErrorsForm("");
+
+    try {
+      await $API.post("catalog/tours/", formData);
+
+      setIsModalOpen(false);
+      setFormData({
+        name: "",
+        description: "",
+        category_id: "",
+        company_id: "",
+      });
+    } catch (error) {
+      console.error(error);
+      setErrorsForm("К сожалению, вы допустили какую-то ошибку в форме");
+    }
   };
 
   const handleInputChange = (e) => {
@@ -51,69 +100,6 @@ export default function ToursAdmin() {
       [name]: value,
     }));
   };
-
-  // const tours = [
-  //   {
-  //     id: 1,
-  //     name: "Тур в Париж",
-  //     destination: "Франция, Париж",
-  //     duration: "7 дней",
-  //     price: 1500,
-  //     participants: 12,
-  //     maxParticipants: 20,
-  //     startDate: "2025-12-01",
-  //     status: "active",
-  //     createdAt: "2025-10-15",
-  //   },
-  //   {
-  //     id: 2,
-  //     name: "Отдых на Бали",
-  //     destination: "Индонезия, Бали",
-  //     duration: "10 дней",
-  //     price: 2200,
-  //     participants: 8,
-  //     maxParticipants: 15,
-  //     startDate: "2025-12-15",
-  //     status: "active",
-  //     createdAt: "2025-10-20",
-  //   },
-  //   {
-  //     id: 3,
-  //     name: "Сафари в Кении",
-  //     destination: "Кения, Найроби",
-  //     duration: "14 дней",
-  //     price: 3500,
-  //     participants: 6,
-  //     maxParticipants: 10,
-  //     startDate: "2026-01-10",
-  //     status: "draft",
-  //     createdAt: "2025-11-01",
-  //   },
-  //   {
-  //     id: 4,
-  //     name: "Круиз по Средиземному морю",
-  //     destination: "Италия, Греция, Турция",
-  //     duration: "12 дней",
-  //     price: 2800,
-  //     participants: 20,
-  //     maxParticipants: 20,
-  //     startDate: "2025-11-25",
-  //     status: "full",
-  //     createdAt: "2025-09-30",
-  //   },
-  //   {
-  //     id: 5,
-  //     name: "Экскурсия в Токио",
-  //     destination: "Япония, Токио",
-  //     duration: "5 дней",
-  //     price: 1800,
-  //     participants: 15,
-  //     maxParticipants: 25,
-  //     startDate: "2026-02-01",
-  //     status: "active",
-  //     createdAt: "2025-11-05",
-  //   },
-  // ];
 
   useEffect(() => {
     $API.get("catalog/tours/").then((response) => {
@@ -125,7 +111,7 @@ export default function ToursAdmin() {
     $API.get("catalog/categories/").then((response) => {
       setCategories(response.data);
     });
-  });
+  }, []);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -159,8 +145,11 @@ export default function ToursAdmin() {
 
   const filteredTours = tourData.filter((tour) => {
     const matchesSearch =
-      tour.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tour.destination.toLowerCase().includes(searchQuery.toLowerCase());
+      (tour.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (tour.destination || "")
+        .toString()
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
     const matchesStatus =
       statusFilter === "all" || tour.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -179,6 +168,10 @@ export default function ToursAdmin() {
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
   };
+
+  const selectedCategory = categories.find(
+    (cat) => String(cat.id) === String(formData.category_id)
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -296,11 +289,22 @@ export default function ToursAdmin() {
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-gray-900">
-                          {tour.name}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          ID: {tour.id}
+                        <div className="flex items-center gap-2">
+                          {/* Иконка тура по типу категории (если есть) */}
+                          {tour.category?.icon && (
+                            <TravelTypeIcon
+                              type={tour.category.icon}
+                              className="w-4 h-4 text-blue-600"
+                            />
+                          )}
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {tour.name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              ID: {tour.id}
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
@@ -310,7 +314,9 @@ export default function ToursAdmin() {
                         {tour.duration}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
-                        {new Date(tour.startDate).toLocaleDateString("ru-RU")}
+                        {tour.startDate
+                          ? new Date(tour.startDate).toLocaleDateString("ru-RU")
+                          : "-"}
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-sm text-gray-900">
@@ -434,6 +440,12 @@ export default function ToursAdmin() {
             {/* Modal Body */}
             <form onSubmit={handleSubmit} className="px-6 py-4">
               <div className="space-y-5">
+                {errorsForm && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded px-3 py-2">
+                    {errorsForm}
+                  </div>
+                )}
+
                 {/* Company ID */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -503,10 +515,23 @@ export default function ToursAdmin() {
                     <option value="">Выберите категорию</option>
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>
-                        {cat.icon} {cat.name}
+                        {cat.name}
                       </option>
                     ))}
                   </select>
+
+                  {selectedCategory && (
+                    <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                      <span className="text-gray-400">Иконка категории:</span>
+                      <TravelTypeIcon
+                        type={selectedCategory.icon}
+                        className="w-4 h-4 text-blue-600"
+                      />
+                      <span className="text-gray-500">
+                        {selectedCategory.icon}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Info Block */}
@@ -530,7 +555,8 @@ export default function ToursAdmin() {
                           После создания тур получит уникальный ID автоматически
                         </li>
                         <li>
-                          Информация о категории будет добавлена из базы данных
+                          Информация о категории и её иконке берётся из базы
+                          данных
                         </li>
                         <li>Статус нового тура по умолчанию: "Черновик"</li>
                       </ul>
