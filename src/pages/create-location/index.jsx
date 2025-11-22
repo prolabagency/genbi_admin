@@ -5,7 +5,7 @@ import { CountriesTable } from "../../components/locationManegment/countriesTabl
 import { RegionsTable } from "../../components/locationManegment/regionTable";
 import { CitiesTable } from "../../components/locationManegment/citiesTable";
 import { LocationModal } from "../../components/locationManegment/locationModal";
-
+import Location from "../../components/locationManegment/locationTable";
 import $API from "../../axios";
 
 const LocationsPage = () => {
@@ -16,22 +16,30 @@ const LocationsPage = () => {
   const [selectedItem, setSelectedItem] = useState(null);
 
   const [countries, setCountries] = useState([]);
-  const [regions, setRegions] = useState();
-  const [cities, setCities] = useState();
-  const [location, setLocation] = useState();
+  const [regions, setRegions] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [locations, setLocations] = useState([]); // <- было setLocation
 
   useEffect(() => {
     Promise.all([
       $API.get("geo/countries/"),
       $API.get("geo/regions/"),
       $API.get("geo/cities/"),
-      $API.get("geo/locations/"),
-    ]).then(([countriesRes, regionsRes, citiesRes, locationRes]) => {
-      setCountries(countriesRes.data);
-      setRegions(regionsRes.data);
-      setCities(citiesRes.data);
-      setLocation(locationRes);
-    });
+      // $API.get("geo/locations/"),
+    ])
+      .then(([countriesRes, regionsRes, citiesRes, locationsRes]) => {
+        setCountries(countriesRes.data || []);
+        setRegions(regionsRes.data || []);
+        setCities(citiesRes.data || []);
+        setLocations(locationsRes.data || []); // <- .data ОБЯЗАТЕЛЬНО
+      })
+      .catch((err) => {
+        console.error("Ошибка загрузки локаций:", err);
+        setCountries([]);
+        setRegions([]);
+        setCities([]);
+        setLocations([]);
+      });
   }, []);
 
   const openModal = (type, item = null) => {
@@ -46,37 +54,42 @@ const LocationsPage = () => {
 
   const handleDelete = (id, type) => {
     const userConfirmed = window.confirm("Вы уверены, что хотите удалить?");
-    if (userConfirmed) {
-      let endpoint = "";
-      switch (type) {
-        case "countries":
-          endpoint = `geo/countries/${id}/`;
-          setCountries((prev) =>
-            prev.filter((u) => String(u.id) !== String(id))
-          );
-          break;
-        case "regions":
-          endpoint = `geo/regions/${id}/`;
-          setRegions((prev) => prev.filter((u) => String(u.id) !== String(id)));
-          break;
-        case "cities":
-          endpoint = `geo/cities/${id}/`;
-          setCities((prev) => prev.filter((u) => String(u.id) !== String(id)));
-          break;
-      }
+    if (!userConfirmed) return;
 
-      $API
-        .delete(endpoint)
-        .then(() => {
-          console.log("Удалено успешно");
-        })
-        .catch((error) => {
-          console.error("Ошибка удаления:", error);
-        });
+    let endpoint = "";
+    switch (type) {
+      case "countries":
+        endpoint = `geo/countries/${id}/`;
+        setCountries((prev) => prev.filter((u) => String(u.id) !== String(id)));
+        break;
+      case "regions":
+        endpoint = `geo/regions/${id}/`;
+        setRegions((prev) => prev.filter((u) => String(u.id) !== String(id)));
+        break;
+      case "cities":
+        endpoint = `geo/cities/${id}/`;
+        setCities((prev) => prev.filter((u) => String(u.id) !== String(id)));
+        break;
+      case "location":
+        endpoint = `geo/locations/${id}/`;
+        setLocations((prev) => prev.filter((u) => String(u.id) !== String(id)));
+        break;
+      default:
+        return;
     }
+
+    $API
+      .delete(endpoint)
+      .then(() => {
+        console.log("Удалено успешно");
+      })
+      .catch((error) => {
+        console.error("Ошибка удаления:", error);
+      });
   };
 
   const handleSuccess = (data, type) => {
+    // type: "add" | "edit"
     if (type === "add") {
       switch (activeTab) {
         case "countries":
@@ -89,10 +102,11 @@ const LocationsPage = () => {
           setCities((prev) => [...prev, data]);
           break;
         case "location":
-          setLocation((prev) => [...prev, data]);
+          setLocations((prev) => [...prev, data]);
+          break;
+        default:
           break;
       }
-
       setShowModal(false);
     } else {
       switch (activeTab) {
@@ -112,12 +126,47 @@ const LocationsPage = () => {
           );
           break;
         case "location":
-          setLocation((prev) => {
-            prev.map((item) => (item.id === data.id ? data : item));
-          });
+          setLocations((prev) =>
+            prev.map((item) => (item.id === data.id ? data : item))
+          ); // <- здесь раньше не было return
+          break;
+        default:
+          break;
       }
+      setShowModal(false);
     }
   };
+
+  // текст в поиске и кнопке под таб
+  const currentEntityName =
+    activeTab === "countries"
+      ? "стран"
+      : activeTab === "regions"
+      ? "регионов"
+      : activeTab === "cities"
+      ? "городов"
+      : "локаций";
+
+  const currentEntitySingle =
+    activeTab === "countries"
+      ? "страну"
+      : activeTab === "regions"
+      ? "регион"
+      : activeTab === "cities"
+      ? "город"
+      : "локацию";
+
+  // фильтрация для таба location (по name / description)
+  const filteredLocations =
+    activeTab === "location"
+      ? locations.filter((loc) => {
+          const q = searchTerm.toLowerCase();
+          return (
+            (loc.name || "").toLowerCase().includes(q) ||
+            (loc.description || "").toLowerCase().includes(q)
+          );
+        })
+      : locations;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -127,7 +176,7 @@ const LocationsPage = () => {
             Управление локациями
           </h1>
           <p className="text-gray-600">
-            Управляйте странами, регионами и городами вашей системы
+            Управляйте странами, регионами, городами и точечными локациями
           </p>
         </div>
 
@@ -174,13 +223,7 @@ const LocationsPage = () => {
                 />
                 <input
                   type="text"
-                  placeholder={`Поиск ${
-                    activeTab === "countries"
-                      ? "стран"
-                      : activeTab === "regions"
-                      ? "регионов"
-                      : "городов"
-                  }...`}
+                  placeholder={`Поиск ${currentEntityName}...`}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -191,12 +234,7 @@ const LocationsPage = () => {
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
                 <Plus size={20} />
-                Добавить{" "}
-                {activeTab === "countries"
-                  ? "страну"
-                  : activeTab === "regions"
-                  ? "регион"
-                  : "город"}
+                Добавить {currentEntitySingle}
               </button>
             </div>
 
@@ -222,6 +260,15 @@ const LocationsPage = () => {
                 onDelete={(id) => handleDelete(id, "cities")}
               />
             )}
+
+            {activeTab === "location" && (
+              <Location
+                locations={filteredLocations}
+                cities={cities}
+                onEdit={handleEdit}
+                onDelete={(id) => handleDelete(id, "location")}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -230,9 +277,10 @@ const LocationsPage = () => {
         show={showModal}
         type={modalType}
         activeTab={activeTab}
-        selectedItem={selectedItem} // ✅ ДОБАВИТЬ - для редактирования
+        selectedItem={selectedItem}
         onClose={() => setShowModal(false)}
-        onSuccess={handleSuccess} // ✅ ИЗМЕНИТЬ - использовать handleSuccess
+        onSuccess={handleSuccess}
+        cities={cities}
       />
     </div>
   );
