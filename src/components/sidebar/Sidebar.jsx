@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+
   const location = useLocation(); // <-- текущий путь
   const navigate = useNavigate();
 

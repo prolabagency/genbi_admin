@@ -25,7 +25,7 @@ const LocationsPage = () => {
       $API.get("geo/countries/"),
       $API.get("geo/regions/"),
       $API.get("geo/cities/"),
-      $API.get("geo/locations/"),
+      // $API.get("geo/locations/"),
     ])
       .then(([countriesRes, regionsRes, citiesRes, locationsRes]) => {
         setCountries(countriesRes.data || []);
